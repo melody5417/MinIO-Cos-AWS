@@ -1,0 +1,24 @@
+{
+  "name": "minio-cos-aws",
+  "version": "1.0.0",
+  "description": "Demo of minio, cos and aws.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/melody5417/MinIO-Cos-AWS.git"
+  },
+  "keywords": [
+    "minIO",
+    "cos",
+    "AWS"
+  ],
+  "author": "lengningshang@126.com",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/melody5417/MinIO-Cos-AWS/issues"
+  },
+  "homepage": "https://github.com/melody5417/MinIO-Cos-AWS#readme"
+}

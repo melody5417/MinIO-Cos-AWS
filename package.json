@@ -20,5 +20,11 @@
   "bugs": {
     "url": "https://github.com/melody5417/MinIO-Cos-AWS/issues"
   },
-  "homepage": "https://github.com/melody5417/MinIO-Cos-AWS#readme"
+  "homepage": "https://github.com/melody5417/MinIO-Cos-AWS#readme",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "cos-js-sdk-v5": "^1.2.12",
+    "crypto": "^1.0.1",
+    "minio": "^7.0.18"
+  }
 }

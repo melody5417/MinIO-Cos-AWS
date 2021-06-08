@@ -7,13 +7,6 @@
 
 项目大致分为**私有化**和**公有云**两个版本，其中私有化版本存储方案采用 **minIO**，公有云版本存储方案为 **COS**。为了兼容这两套存储方案，同时避免引入多分支开发，调研兼容方案——**AWS（Amazon Web Services）**。无论是 minIO 还是 COS 都遵循 AWS 协议，这样就可以一套代码同时兼容 minIO 和 COS 。
 
-# 大纲
-
-* 分别介绍 minIO， COS 和 AWS。
-* 实现 minIO 和 COS 的 demo
-* 基于 AWS 接入 minIO 和 COS 的 demo。
-* 基于安全和前后端分离考虑，实现多个文件上传的 demo。
-
 # minIO
 ### 参考文档
 
@@ -202,4 +195,145 @@ const cosClient = new COS({
 全部的demo可以查看cos文件夹，包含前端和后端的代码。
 
 
+# AWS
+
+项目最终方案采用 AWS，目标是兼容 minIO 和 COS 两套存储方案。这里介绍下 AWS 访问 minio 和 COS 以及简单操作的 Demo。
+
+关于安全问题， AWS 提供 getPresignedURL 机制。前端想要操作某对象时，需要先向后端请求操作该对象的临时签名URL。
+
+### 参考文档
+
+* [AWS 官网](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html)
+* [腾讯云 COS 使用 AWS 访问](https://cloud.tencent.com/document/product/436/37421)
+* [minio 使用 AWS 访问](https://docs.min.io/docs/how-to-use-aws-sdk-for-javascript-with-minio-server.html)
+
+### Demo 后端开发
+* 安装npm依赖
+```
+$ npm i aws-sdk --save
+```
+
+* 依据部署的存储方案类型 config.storage 来初始化 AWS。
+```
+if (config.storage === 'minio') {
+  s3Client = new AWS.S3({
+    accessKeyId: config.minio.accessKeyId,
+    secretAccessKey: config.minio.secretAccessKey,
+    endpoint: config.minio.endpoint,
+    s3ForcePathStyle: true, // needed with minio?
+    signatureVersion: 'v4',
+  });
+  bucket = config.minio.bucket;
+  expireTime = config.minio.expireTime;
+} else {
+  s3Client = new AWS.S3({
+    accessKeyId: config.cos.secretId,
+    secretAccessKey: config.cos.secretKey,
+    endpoint: config.cos.endpoint,
+    s3ForcePathStyle: true, // needed with minio?
+    signatureVersion: 'v4',
+    sslEnabled: true
+  });
+  bucket = config.cos.bucket;
+  expireTime = config.cos.expireTime;
+}
+```
+* 生成临时签名的URL
+
+这里在返回 presignedURL 的同时返回了对象资源的地址--resourceURL，resourceURL是根据规则拼接生成。
+```
+async function getPresignedUrl(req) {
+  try {
+    const { fileKey, operation } = req;
+    let params = {
+      Bucket: bucket,
+      Key: fileKey,
+      Expires: expired
+    };
+    if (operation.indexOf('put') >= 0) {
+      params["ContentType"] = "application/octet-stream";
+    }
+    const presignedURL = await s3Client.getSignedUrlPromise(operation, params);
+    let resourceURL;
+    if (config.storage === 'minio') {
+      resourceURL = `${minio.minio.endpoint}${config.minio.bucket}/${req.fileKey}`
+    } else {
+      resourceURL = `https://${config.cos.endpoint}/${config.cos.bucket}/${req.fileKey}`;
+    }
+    return {
+      errCode: 0,
+      errMsg: '',
+      data: { presignedURL, resourceURL }
+    };
+  } catch (error) {
+    return {
+      errCode: 1000,
+      errMsg: `getPresignedUrl fail ${error}`,
+      data: {}
+    }
+  }
+}
+```
+### Demo 前端开发
+因为 AWS 采用临时签发URL的策略，这样前端就不用再安装 aws sdk，直接向后端请求 presignedURL，然后通过 axios 上传或下载文件就好，全部代码可以查看aws文件夹。
+
+* 上传文件
+```
+export function uploadFileWithKey(key, file, progressCallback, cancelTokenCallback) {
+  return new Promise(async(resolve, reject) => {
+    try {
+      if (!key || !file) {
+        throw new Error('uploadFileWithKey params: key or file is invalid');
+      }
+
+      if (progressCallback && typeof progressCallback !== 'function') {
+        throw new TypeError('progressCallback must be a function.');
+      }
+
+      if (cancelTokenCallback && typeof cancelTokenCallback !== 'function') {
+        throw new TypeError('cancelTokenCallback must be a function');
+      }
+
+      const { presignedURL, resourceURL } = await getPresignedUrl('putObject', key);
+      if (!checkUrl(presignedURL) || !checkUrl(resourceURL)) {
+        throw new Error('getPresignedUrl error');
+      }
+
+      const CancelToken = axios.CancelToken;
+      const source = CancelToken.source();
+      if (cancelTokenCallback) {
+        cancelTokenCallback(source);
+      }
+
+      const config = {
+        headers: { 'Content-Type': file.type },
+        onUploadProgress: (event) => {
+          const progress = event.loaded / event.total;
+          if (progressCallback) {
+            progressCallback(progress);
+          }
+        },
+        cancelToken: source.token,
+      };
+      await axios.put(presignedURL, file, config);
+      resolve({ resourceURL, resourceKey: key });
+    } catch (error) {
+      if (axios.isCancel(error)) {
+      } else {
+        reject(error);
+      }
+    }
+  });
+}
+```
+
+# 题外话
+
+### File key
+
+File key是文件的标识，主要的考虑是不要同名，且同名文件不要互相覆盖，所以最后采用时间串的md5。
+
+### 上传进度和取消
+
+AWS 的demo采用axois上传文件，这里封装了上传进度和取消的逻辑。在调用  ``` uploadFileWithKey ``` 接口后两个参数就是 progressCallback 和 cancelTokenCallback。
 

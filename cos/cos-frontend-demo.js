@@ -1,4 +1,4 @@
-import axios from 'axios';
+const axios = require('axios');
 const COS = require('cos-js-sdk-v5');
 const crypto = require('crypto');
 

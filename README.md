@@ -331,7 +331,7 @@ export function uploadFileWithKey(key, file, progressCallback, cancelTokenCallba
 
 ### File key
 
-File key是文件的标识，主要的考虑是不要同名，且同名文件不要互相覆盖，所以最后采用时间串的md5。
+File key是文件的标识，主要的考虑是不要同名，且同名文件不要互相覆盖，所以最后采用文件名+时间串的md5。
 
 ### 上传进度和取消
 

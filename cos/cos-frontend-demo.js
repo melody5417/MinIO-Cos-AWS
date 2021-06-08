@@ -48,7 +48,7 @@ const cosAuthorization = function () {
  * @returns File key
  */
 const getCosKey = function (filename) {
-    const md5 = crypto.createHash('md5').update(Date.now().toString()).digest('hex');
+    const md5 = crypto.createHash('md5').update(`${file.name} ${Date.now().toString()}`).digest('hex');
     return md5;
 };
 

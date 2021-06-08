@@ -52,7 +52,7 @@ export const getKey = function(file) {
     prefix += '/private-read';
   }
   const ext = file.name.split('.').pop();
-  const md5 = crypto.createHash('md5').update(Date.now().toString()).digest('hex');
+  const md5 = crypto.createHash('md5').update(`${file.name} ${Date.now().toString()}`).digest('hex');
   return `${prefix}/${md5}.${ext}`;
 };
 
